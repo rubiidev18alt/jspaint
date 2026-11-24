@@ -62,7 +62,7 @@ context("AI Drawing", () => {
 			expect(win.aiWorker.model).to.equal("lite");
 			expect(win.aiWorker.prompt).to.equal("a little house");
 		});
-		cy.get("#ai-drawing-model").should("have.value", "lite");
+		cy.get("#ai-model-lite").should("be.checked");
 		cy.get(".ai-drawing-status").should("contain", "Trying Lite");
 		cy.window().then((win) => win.aiWorker.onmessage({ data: { type: "error", text: "CreateComputePipelines failed" } }));
 		cy.get(".ai-drawing-status").should("contain", "even in Lite mode");
@@ -71,13 +71,15 @@ context("AI Drawing", () => {
 	});
 
 	it("lets you choose Lite without downloading the standard model", () => {
-		cy.get("#ai-drawing-model").select("lite");
+		cy.get('label[for="ai-model-lite"]').click();
+		cy.get("#ai-model-lite").should("be.checked");
 		cy.get("#ai-drawing-prompt").type("a tree");
 		cy.contains(".ai-drawing-window button", "Generate").click();
 		cy.window().its("aiWorker.model").should("equal", "lite");
 		cy.window().then((win) => win.aiWorker.onmessage({ data: { type: "result", text: drawing } }));
 		cy.get(".ai-drawing-preview").should("be.visible");
-		cy.get("#ai-drawing-model").select("standard");
+		cy.get('label[for="ai-model-standard"]').click();
+		cy.get("#ai-model-standard").should("be.checked");
 		cy.window().its("aiWorker.terminated").should("equal", true);
 		cy.contains(".ai-drawing-window button", "Apply to canvas").should("be.disabled");
 	});
@@ -110,5 +112,23 @@ context("AI Drawing", () => {
 		cy.contains(".ai-drawing-window button", "Stop").click();
 		cy.get(".ai-drawing-status").should("contain", "Stopped");
 		cy.window().its("aiWorker.terminated").should("equal", true);
+	});
+});
+
+context("AI Drawing on a small screen", () => {
+	it("keeps both model choices tappable and the dialog scrollable", () => {
+		cy.viewport(375, 667);
+		cy.visit("/");
+		cy.window().should("have.property", "api_for_cypress_tests");
+		cy.contains(".menu-button", /^Extras$/).trigger("pointerdown", { which: 1 }).trigger("pointerup", { force: true });
+		cy.contains(".menu-item-label", /^AI Drawing\.\.\.$/).trigger("pointerdown", { which: 1 }).trigger("pointerup", { force: true });
+		cy.get(".ai-drawing-window").should("have.css", "touch-action", "auto");
+		cy.get(".ai-drawing-window .window-content form > div:first-child").should("have.css", "overflow-y", "auto");
+		cy.get('label[for="ai-model-lite"]').should("be.visible").then(($label) => {
+			expect($label[0].getBoundingClientRect().height).to.be.at.least(44);
+		}).click();
+		cy.get("#ai-model-lite").should("be.checked");
+		cy.get('label[for="ai-model-standard"]').click();
+		cy.get("#ai-model-standard").should("be.checked");
 	});
 });

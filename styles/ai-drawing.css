@@ -1,0 +1,23 @@
+/* Large radio labels avoid relying on the native dropdown picker on touchscreens. */
+.ai-drawing-window .ai-model-options {
+	min-width: 0;
+	padding: 4px 8px;
+}
+.ai-drawing-window .ai-model-option {
+	display: flex;
+	align-items: center;
+}
+.ai-drawing-window .window-content .ai-model-option label {
+	align-items: center;
+	box-sizing: border-box;
+	min-height: 44px;
+	padding: 8px 4px;
+	line-height: normal;
+	cursor: pointer;
+}
+/* Center 98.css's custom radio glyphs in the larger hit target. */
+.ai-drawing-window .ai-model-option input[type="radio"] + label::before,
+.ai-drawing-window .ai-model-option input[type="radio"]:checked + label::after {
+	top: 50%;
+	transform: translateY(-50%);
+}

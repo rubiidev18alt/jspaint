@@ -10,16 +10,22 @@ export function show_ai_drawing() {
 	if (drawing_window && !drawing_window.closed) {
 		drawing_window.close();
 	}
-	const $w = drawing_window = $DialogWindow("AI Drawing").addClass("ai-drawing-window horizontal-buttons");
+	const $w = drawing_window = $DialogWindow("AI Drawing").addClass("ai-drawing-window horizontal-buttons squish");
 	$w.$main.html(`
 		<div style="padding: 10px; width: 400px; max-width: calc(100vw - 50px); box-sizing: border-box;">
 			<p style="margin-top: 0">Describe a picture and the AI will draw it using simple colored shapes.</p>
 			<p>Runs locally with Qwen 2.5 and WebLLM. No API key needed. The first use downloads a large model (about 1 GB); a WebGPU browser and a capable GPU are required.</p>
-			<label for="ai-drawing-model">Model:</label>
-			<select id="ai-drawing-model" class="inset-deep" style="max-width: 100%;">
-				<option value="standard">Standard (better drawings, more GPU memory)</option>
-				<option value="lite">Lite (simpler drawings, less GPU memory)</option>
-			</select>
+			<fieldset class="ai-model-options">
+				<legend>Model</legend>
+				<div class="ai-model-option">
+					<input type="radio" name="ai-drawing-model" id="ai-model-standard" value="standard" checked>
+					<label for="ai-model-standard">Standard (better drawings, more GPU memory)</label>
+				</div>
+				<div class="ai-model-option">
+					<input type="radio" name="ai-drawing-model" id="ai-model-lite" value="lite">
+					<label for="ai-model-lite">Lite (simpler drawings, less GPU memory)</label>
+				</div>
+			</fieldset>
 			<p>On a GPU pipeline error, Standard automatically tries Lite, which requires a separate download of several hundred MB. Both need WebGPU.</p>
 			<label for="ai-drawing-prompt">What should I draw?</label>
 			<textarea id="ai-drawing-prompt" class="inset-deep" rows="3" maxlength="500" placeholder="A yellow sun over a little house" style="display: block; width: 100%; box-sizing: border-box; margin: 5px 0;"></textarea>
@@ -28,9 +34,12 @@ export function show_ai_drawing() {
 			<canvas class="ai-drawing-preview inset-deep" aria-label="Generated drawing preview" hidden style="display: none; max-width: 100%; max-height: 200px; background: white; object-fit: contain;"></canvas>
 		</div>
 	`);
-	$w.$main.css({ maxHeight: "calc(100vh - 130px)", overflowY: "auto" });
+	// OS-GUI disables touch actions for draggable windows by default; this
+	// dialog has scrollable content, while its titlebar still handles dragging.
+	$w.css("touch-action", "auto");
+	$w.$main.css({ maxHeight: "calc(100vh - 130px)", overflowY: "auto", touchAction: "pan-y", overscrollBehavior: "contain" });
 	const $prompt = $w.$main.find("#ai-drawing-prompt");
-	const $model = $w.$main.find("#ai-drawing-model");
+	const $models = $w.$main.find('input[name="ai-drawing-model"]');
 	const $status = $w.$main.find(".ai-drawing-status");
 	const $preview = $w.$main.find(".ai-drawing-preview");
 	let worker;
@@ -64,7 +73,7 @@ export function show_ai_drawing() {
 		busy = value;
 		if (!value) clearInterval(progress_timer);
 		$generate.prop("disabled", value);
-		$model.prop("disabled", value);
+		$models.prop("disabled", value);
 		$apply.prop("disabled", value || !shapes);
 		$cancel.text(value ? "Stop" : "Close");
 	};
@@ -89,7 +98,7 @@ export function show_ai_drawing() {
 							// fresh worker for the smaller model instead of reusing that device.
 							const fallback_prompt = active_prompt;
 							stop();
-							$model.val("lite");
+							$models.filter('[value="lite"]').prop("checked", true);
 							start_generation(fallback_prompt, "lite", true);
 						} else if (/createcomputepipeline/i.test(data.text)) {
 							fail("Your browser or GPU could not compile the AI model, even in Lite mode. Update your browser and GPU drivers, close other GPU-heavy apps, or try a different device. Technical detail: " + data.text);
@@ -143,7 +152,7 @@ export function show_ai_drawing() {
 			set_busy(false);
 			return;
 		}
-		start_generation(prompt, String($model.val()));
+		start_generation(prompt, String($models.filter(":checked").val()));
 	});
 	const $apply = $w.$Button("Apply to canvas", () => {
 		if (!shapes || busy) return;
@@ -165,7 +174,7 @@ export function show_ai_drawing() {
 		}
 	});
 	$w.on("close", stop);
-	$model.on("change", () => {
+	$models.on("change", () => {
 		stop();
 		shapes = null;
 		$preview.hide();
@@ -190,5 +199,8 @@ export function show_ai_drawing() {
 	});
 	set_busy(false);
 	$w.center();
-	$prompt.focus();
+	// Opening the on-screen keyboard immediately can cover the model choices.
+	if (window.matchMedia("(pointer: fine)").matches) {
+		$prompt.focus();
+	}
 }
