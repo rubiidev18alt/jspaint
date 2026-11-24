@@ -15,6 +15,12 @@ export function show_ai_drawing() {
 		<div style="padding: 10px; width: 400px; max-width: calc(100vw - 50px); box-sizing: border-box;">
 			<p style="margin-top: 0">Describe a picture and the AI will draw it using simple colored shapes.</p>
 			<p>Runs locally with Qwen 2.5 and WebLLM. No API key needed. The first use downloads a large model (about 1 GB); a WebGPU browser and a capable GPU are required.</p>
+			<label for="ai-drawing-model">Model:</label>
+			<select id="ai-drawing-model" class="inset-deep" style="max-width: 100%;">
+				<option value="standard">Standard (better drawings, more GPU memory)</option>
+				<option value="lite">Lite (simpler drawings, less GPU memory)</option>
+			</select>
+			<p>On a GPU pipeline error, Standard automatically tries Lite, which requires a separate download of several hundred MB. Both need WebGPU.</p>
 			<label for="ai-drawing-prompt">What should I draw?</label>
 			<textarea id="ai-drawing-prompt" class="inset-deep" rows="3" maxlength="500" placeholder="A yellow sun over a little house" style="display: block; width: 100%; box-sizing: border-box; margin: 5px 0;"></textarea>
 			<p style="margin: 5px 0">The AI creates a new illustration; it cannot see or edit your existing picture. Applying it draws over your canvas and can be undone.</p>
@@ -22,12 +28,16 @@ export function show_ai_drawing() {
 			<canvas class="ai-drawing-preview inset-deep" aria-label="Generated drawing preview" hidden style="display: none; max-width: 100%; max-height: 200px; background: white; object-fit: contain;"></canvas>
 		</div>
 	`);
+	$w.$main.css({ maxHeight: "calc(100vh - 130px)", overflowY: "auto" });
 	const $prompt = $w.$main.find("#ai-drawing-prompt");
+	const $model = $w.$main.find("#ai-drawing-model");
 	const $status = $w.$main.find(".ai-drawing-status");
 	const $preview = $w.$main.find(".ai-drawing-preview");
 	let worker;
 	let busy = false;
 	let shapes = null;
+	let active_prompt;
+	let active_model;
 	let progress_timer;
 	let last_progress_time;
 	let progress_text;
@@ -54,6 +64,7 @@ export function show_ai_drawing() {
 		busy = value;
 		if (!value) clearInterval(progress_timer);
 		$generate.prop("disabled", value);
+		$model.prop("disabled", value);
 		$apply.prop("disabled", value || !shapes);
 		$cancel.text(value ? "Stop" : "Close");
 	};
@@ -63,20 +74,9 @@ export function show_ai_drawing() {
 		$status.text(`Couldn't draw: ${message}`);
 	};
 
-	const $generate = $w.$Button("Generate", () => {
-		const prompt = String($prompt.val()).trim();
-		if (!prompt) {
-			$status.text("Please describe what you want to draw.");
-			$prompt.focus();
-			return;
-		}
-		shapes = null;
-		$preview.hide();
-		if (!navigator.gpu) {
-			$status.text("WebGPU is not available. Try a current WebGPU-enabled Chrome or Edge browser on a compatible device.");
-			set_busy(false);
-			return;
-		}
+	const start_generation = (prompt, model, is_fallback = false) => {
+		active_prompt = prompt;
+		active_model = model;
 		try {
 			if (!worker) {
 				worker = new Worker(new URL("./ai-drawing-worker.js", import.meta.url), { type: "module" });
@@ -84,7 +84,18 @@ export function show_ai_drawing() {
 					if (data.type === "progress") {
 						show_progress(data.text, data.phase);
 					} else if (data.type === "error") {
-						fail(`${data.text} Check your connection, browser WebGPU support and available GPU memory, then try again.`);
+						if (active_model === "standard" && /createcomputepipeline/i.test(data.text)) {
+							// A failed initialization can leave GPU resources allocated. Start a
+							// fresh worker for the smaller model instead of reusing that device.
+							const fallback_prompt = active_prompt;
+							stop();
+							$model.val("lite");
+							start_generation(fallback_prompt, "lite", true);
+						} else if (/createcomputepipeline/i.test(data.text)) {
+							fail("Your browser or GPU could not compile the AI model, even in Lite mode. Update your browser and GPU drivers, close other GPU-heavy apps, or try a different device. Technical detail: " + data.text);
+						} else {
+							fail(`${data.text} Check your connection, browser WebGPU support and available GPU memory, then try again.`);
+						}
 					} else if (data.type === "result") {
 						try {
 							shapes = parse_ai_drawing(data.text);
@@ -104,7 +115,7 @@ export function show_ai_drawing() {
 				worker.onerror = () => fail("The AI worker could not start. Check your browser and try again.");
 			}
 			set_busy(true);
-			show_progress("Loading AI model… The first download may take a while.", "loading");
+			show_progress(is_fallback ? "Standard model failed on this GPU. Trying Lite; its separate download may take a while." : "Loading AI model… The first download may take a while.", "loading");
 			progress_timer = setInterval(() => {
 				const seconds = Math.floor((Date.now() - last_progress_time) / 1000);
 				if (progress_phase !== "drawing" && seconds >= 180) {
@@ -113,10 +124,26 @@ export function show_ai_drawing() {
 					$status.text(`${progress_text} (${seconds}s since last update)`);
 				}
 			}, 1000);
-			worker.postMessage({ prompt });
+			worker.postMessage({ prompt, model });
 		} catch (error) {
 			fail(error.message);
 		}
+	};
+	const $generate = $w.$Button("Generate", () => {
+		const prompt = String($prompt.val()).trim();
+		if (!prompt) {
+			$status.text("Please describe what you want to draw.");
+			$prompt.focus();
+			return;
+		}
+		shapes = null;
+		$preview.hide();
+		if (!navigator.gpu) {
+			$status.text("WebGPU is not available. Try a current WebGPU-enabled Chrome or Edge browser on a compatible device.");
+			set_busy(false);
+			return;
+		}
+		start_generation(prompt, String($model.val()));
 	});
 	const $apply = $w.$Button("Apply to canvas", () => {
 		if (!shapes || busy) return;
@@ -138,6 +165,13 @@ export function show_ai_drawing() {
 		}
 	});
 	$w.on("close", stop);
+	$model.on("change", () => {
+		stop();
+		shapes = null;
+		$preview.hide();
+		set_busy(false);
+		$status.text("Model changed. Generate a new preview.");
+	});
 	$prompt.on("input", () => {
 		if (!busy && shapes) {
 			shapes = null;

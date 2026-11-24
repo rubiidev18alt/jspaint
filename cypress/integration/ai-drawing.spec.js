@@ -17,7 +17,7 @@ context("AI Drawing", () => {
 						if (!String(url).includes("ai-drawing-worker")) return new NativeWorker(url, options);
 						win.aiWorker = this;
 					}
-					postMessage(message) { this.prompt = message.prompt; }
+					postMessage(message) { this.prompt = message.prompt; this.model = message.model; }
 					terminate() { this.terminated = true; }
 				};
 			},
@@ -48,6 +48,39 @@ context("AI Drawing", () => {
 		});
 	});
 
+
+
+	it("retries a GPU pipeline error once with a fresh Lite worker", () => {
+		cy.get("#ai-drawing-prompt").type("a little house");
+		cy.contains(".ai-drawing-window button", "Generate").click();
+		cy.window().then((win) => {
+			const standard = win.aiWorker;
+			expect(standard.model).to.equal("standard");
+			standard.onmessage({ data: { type: "error", text: "CreateComputePipelines failed" } });
+			expect(standard.terminated).to.equal(true);
+			expect(win.aiWorker).not.to.equal(standard);
+			expect(win.aiWorker.model).to.equal("lite");
+			expect(win.aiWorker.prompt).to.equal("a little house");
+		});
+		cy.get("#ai-drawing-model").should("have.value", "lite");
+		cy.get(".ai-drawing-status").should("contain", "Trying Lite");
+		cy.window().then((win) => win.aiWorker.onmessage({ data: { type: "error", text: "CreateComputePipelines failed" } }));
+		cy.get(".ai-drawing-status").should("contain", "even in Lite mode");
+		cy.contains(".ai-drawing-window button", "Generate").should("not.be.disabled");
+		cy.window().its("aiWorker.terminated").should("equal", true);
+	});
+
+	it("lets you choose Lite without downloading the standard model", () => {
+		cy.get("#ai-drawing-model").select("lite");
+		cy.get("#ai-drawing-prompt").type("a tree");
+		cy.contains(".ai-drawing-window button", "Generate").click();
+		cy.window().its("aiWorker.model").should("equal", "lite");
+		cy.window().then((win) => win.aiWorker.onmessage({ data: { type: "result", text: drawing } }));
+		cy.get(".ai-drawing-preview").should("be.visible");
+		cy.get("#ai-drawing-model").select("standard");
+		cy.window().its("aiWorker.terminated").should("equal", true);
+		cy.contains(".ai-drawing-window button", "Apply to canvas").should("be.disabled");
+	});
 
 	it("shows download progress and recovers when loading stops responding", () => {
 		cy.clock();

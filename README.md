@@ -854,7 +854,13 @@ needed, and prompts stay on your device. The first use downloads approximately
 caches these files for later. An internet connection is needed for that first
 download, and a WebGPU-enabled browser and compatible GPU with roughly 2 GB of
 available GPU memory are required. Loading or generation can take several
-minutes. Use Stop to cancel. The WebLLM library is distributed under its
+minutes. Use Stop to cancel. If the standard model encounters a GPU pipeline
+error, the app automatically tries the smaller Qwen 2.5 0.5B Lite model in a
+fresh worker. Lite needs a separate download of several hundred MB and about
+1 GB of GPU memory; its drawings may be simpler. You can also select Lite
+before generating. Both models require WebGPU and may fail on some GPU drivers;
+try updating the browser and drivers or using a different device if Lite fails
+too. The WebLLM library is distributed under its
 [Apache 2.0 license](lib/web-llm/LICENSE).
 
 #### Testing on GitHub Pages
