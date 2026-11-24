@@ -840,3 +840,27 @@ JS Paint is free and open source software, licensed under the permissive [MIT li
 [![GitHub Repo stars](https://img.shields.io/github/stars/1j01/jspaint?label=GitHub%20Stars&style=social)](https://github.com/1j01/jspaint/stargazers)
 [![GitHub forks](https://img.shields.io/github/forks/1j01/jspaint?style=social)](https://github.com/1j01/jspaint/network/members)
 
+
+### AI Drawing
+
+Open **Extras > AI Drawing** and describe a picture, then generate a preview and
+apply it to the canvas. The drawing is made from simple colored shapes, not a
+photorealistic image. It is placed over the current canvas and can be undone.
+The model cannot see or modify the existing picture based on your prompt.
+
+This uses Qwen 2.5 1.5B locally via WebLLM: no API key or AI service account is
+needed, and prompts stay on your device. The first use downloads approximately
+1 GB of model data from Hugging Face and a WebGPU runtime from MLC; WebLLM
+caches these files for later. An internet connection is needed for that first
+download, and a WebGPU-enabled browser and compatible GPU with roughly 2 GB of
+available GPU memory are required. Loading or generation can take several
+minutes. Use Stop to cancel. The WebLLM library is distributed under its
+[Apache 2.0 license](lib/web-llm/LICENSE).
+
+#### Testing on GitHub Pages
+
+The `Deploy test site to GitHub Pages` workflow deploys pushes to the test
+branch `arena/cafe7881-jspaint`. In repository settings, enable **Pages** and
+select **GitHub Actions** as the build and deployment source before running
+it. The deployment omits the repository's `CNAME` so this test site uses the
+repository's normal GitHub Pages URL instead of claiming the production domain.

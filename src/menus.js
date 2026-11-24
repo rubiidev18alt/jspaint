@@ -2,6 +2,7 @@
 /* global tool_transparent_mode:writable, palette:writable, show_font_box:writable */
 /* global $canvas_area, $colorbox, $status_area, $toolbox, available_languages, get_iso_language_name, get_language, get_language_emoji, get_language_endonym, localize, magnification, main_canvas, menu_bar, MENU_DIVIDER, redos, selection, set_language, show_grid, show_thumbnail, systemHooks, textbox, undos */
 // import { available_languages, get_iso_language_name, get_language, get_language_emoji, get_language_endonym, localize, set_language } from "./app-localization.js";
+import { show_ai_drawing } from "./ai-drawing.js";
 import { OnCanvasTextBox } from "./OnCanvasTextBox.js";
 import { show_edit_colors_window } from "./edit-colors.js";
 import { palette_formats } from "./file-format-data.js";
@@ -794,6 +795,13 @@ const menus = {
 		},
 	],
 	[localize("E&xtras")]: [
+		{
+			emoji_icon: "✨",
+			label: "AI Drawing...",
+			action: () => { show_ai_drawing(); },
+			description: "Draw a picture from a text description with a local AI model.",
+		},
+		MENU_DIVIDER,
 		{
 			emoji_icon: "⌚",
 			label: localize("&History"),

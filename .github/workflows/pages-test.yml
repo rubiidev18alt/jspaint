@@ -1,0 +1,38 @@
+name: Deploy test site to GitHub Pages
+
+on:
+  push:
+    branches:
+      - arena/cafe7881-jspaint
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare static site
+        run: |
+          mkdir -p "$RUNNER_TEMP/jspaint-pages"
+          rsync -a --exclude='.git' --exclude='.github' --exclude='CNAME' \
+            --exclude='node_modules' --exclude='cypress' --exclude='tests' \
+            ./ "$RUNNER_TEMP/jspaint-pages/"
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ runner.temp }}/jspaint-pages
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
