@@ -1,5 +1,6 @@
 import { CreateMLCEngine } from "../lib/web-llm/index.js";
 import { track_model_downloads } from "./ai-model-download.js";
+import { ai_drawing_prompt } from "./ai-drawing-prompts.js";
 
 // The model and its compiled WebGPU runtime are downloaded by WebLLM on first use.
 const models = {
@@ -47,7 +48,7 @@ self.onmessage = async ({ data }) => {
 		self.postMessage({ type: "progress", phase: "drawing", text: "Drawing… This may take a few minutes." });
 		const result = await engine.chat.completions.create({
 			messages: [
-				{ role: "system", content: `You draw simple colorful flat illustrations using shapes. Return JSON only: {"shapes":[{"type":"ellipse","color":"#ffcc00","x":300,"y":200,"width":400,"height":400}]}. Shapes are painted in order. The canvas is 1000 by 1000. Coordinates and sizes are numbers between 0 and 1000. Types: rectangle, ellipse, triangle (points up), line (from x,y to x+width,y+height). All colors must be six digit hex like #ff0000. Use 5 to 18 shapes. Make a recognizable, attractive illustration of the user's request. Add a background rectangle only if requested.` },
+				{ role: "system", content: ai_drawing_prompt(data.model) },
 				{ role: "user", content: data.prompt },
 			],
 			response_format: { type: "json_object", schema: JSON.stringify(schema) },

@@ -1,4 +1,5 @@
 import { env, pipeline, TextStreamer } from "../lib/transformers/transformers.min.js";
+import { ai_drawing_prompt } from "./ai-drawing-prompts.js";
 
 // Run ONNX Runtime on the CPU only. Pages is not cross-origin isolated, so
 // force one WASM thread rather than requiring SharedArrayBuffer headers.
@@ -8,7 +9,6 @@ env.backends.onnx.wasm.wasmPaths = new URL("../lib/transformers/", import.meta.u
 
 let generator;
 let last_progress_post = 0;
-const instructions = `You draw simple colorful flat illustrations using shapes. Return JSON only, no markdown: {"shapes":[{"type":"ellipse","color":"#ffcc00","x":300,"y":200,"width":400,"height":400}]}. Shapes are painted in order. The canvas is 1000 by 1000. Coordinates and sizes are numbers between 0 and 1000. Types: rectangle, ellipse, triangle (points up), line (from x,y to x+width,y+height). All colors must be six digit hex like #ff0000. Use 3 to 10 shapes. Make a recognizable illustration of the user's request. Add a background rectangle only if requested.`;
 
 self.onmessage = async ({ data }) => {
 	try {
@@ -38,7 +38,7 @@ self.onmessage = async ({ data }) => {
 			},
 		});
 		const result = await generator([
-			{ role: "system", content: instructions },
+			{ role: "system", content: ai_drawing_prompt("cpu") },
 			{ role: "user", content: data.prompt },
 		], { max_new_tokens: 1000, do_sample: false, return_full_text: false, streamer });
 		const generated = result[0]?.generated_text;

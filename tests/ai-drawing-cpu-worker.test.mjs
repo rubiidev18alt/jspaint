@@ -23,6 +23,7 @@ test("CPU worker uses WASM, reports progress, and extracts a chat response", asy
 	const moduleUrl = `data:text/javascript;base64,${Buffer.from(fakeLibrary).toString("base64")}`;
 	let source = await readFile(new URL("../src/ai-drawing-cpu-worker.js", import.meta.url), "utf8");
 	source = source.replace('"../lib/transformers/transformers.min.js"', JSON.stringify(moduleUrl));
+	source = source.replace('"./ai-drawing-prompts.js"', JSON.stringify(new URL("../src/ai-drawing-prompts.js", import.meta.url).href));
 	// import.meta.url in a data URL cannot resolve relative paths.
 	source = source.replace('new URL("../lib/transformers/", import.meta.url).href', '"https://example.test/lib/transformers/"');
 	await import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}`);
@@ -32,6 +33,8 @@ test("CPU worker uses WASM, reports progress, and extracts a chat response", asy
 	assert.equal(cpuTest.pipeline.options.dtype, "q8");
 	assert.equal(cpuTest.env.backends.onnx.wasm.numThreads, 1);
 	assert.equal(cpuTest.chat[1].content, "a tree");
+	assert.match(cpuTest.chat[0].content, /top left/);
+	assert.match(cpuTest.chat[0].content, /3 to 10 shapes/);
 	assert.ok(messages.some(m => m.phase === "download" && m.text.includes("1.0 / 2.0 MB")));
 	assert.ok(messages.some(m => m.phase === "drawing" && m.text.includes("5 tokens")));
 	assert.deepEqual(messages.at(-1), { type: "result", text: '{"shapes":[]}' });
