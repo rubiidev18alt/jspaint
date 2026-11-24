@@ -48,6 +48,23 @@ context("AI Drawing", () => {
 		});
 	});
 
+
+	it("shows download progress and recovers when loading stops responding", () => {
+		cy.clock();
+		cy.get("#ai-drawing-prompt").type("a tree");
+		cy.contains(".ai-drawing-window button", "Generate").click();
+		cy.window().then((win) => win.aiWorker.onmessage({ data: {
+			type: "progress", phase: "download", text: "Downloading model: 12 MB received this run.",
+		} }));
+		cy.get(".ai-drawing-status").should("contain", "12 MB");
+		cy.tick(6000);
+		cy.get(".ai-drawing-status").should("contain", "6s since last update");
+		cy.tick(174000);
+		cy.get(".ai-drawing-status").should("contain", "not made progress for 3 minutes");
+		cy.contains(".ai-drawing-window button", "Generate").should("not.be.disabled");
+		cy.window().its("aiWorker.terminated").should("equal", true);
+	});
+
 	it("handles invalid results and can stop a request", () => {
 		cy.contains(".ai-drawing-window button", "Generate").click();
 		cy.get(".ai-drawing-status").should("contain", "Please describe");

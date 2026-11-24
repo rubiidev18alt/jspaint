@@ -864,3 +864,10 @@ branch `arena/cafe7881-jspaint`. In repository settings, enable **Pages** and
 select **GitHub Actions** as the build and deployment source before running
 it. The deployment omits the repository's `CNAME` so this test site uses the
 repository's normal GitHub Pages URL instead of claiming the production domain.
+
+During the first AI model download, progress shows how much data has been
+received in this attempt. It may pause while chunks are saved or loaded onto
+the GPU. If loading stops making progress, try again; completed chunks are
+usually cached. Make sure the browser has sufficient free storage and can
+reach Hugging Face, including its download hosts. Private browsing, extensions,
+network filters, or storage limits can interfere with downloading or caching.

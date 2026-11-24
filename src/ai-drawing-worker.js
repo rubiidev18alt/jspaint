@@ -1,8 +1,13 @@
 import { CreateMLCEngine } from "../lib/web-llm/index.js";
+import { track_model_downloads } from "./ai-model-download.js";
 
 // The model and its compiled WebGPU runtime are downloaded by WebLLM on first use.
 const MODEL = "Qwen2.5-1.5B-Instruct-q4f32_1-MLC";
 let engine;
+const modelBaseUrl = `https://huggingface.co/mlc-ai/${MODEL}/resolve/main/`;
+track_model_downloads(Cache.prototype, modelBaseUrl, (bytes, message) => {
+	self.postMessage({ type: "progress", phase: "download", text: message || `Downloading model: ${(bytes / 1024 / 1024).toFixed(1)} MB received this run. The first download is about 1 GB.` });
+});
 const schema = {
 	type: "object",
 	properties: {
@@ -27,10 +32,15 @@ self.onmessage = async ({ data }) => {
 	try {
 		if (!engine) {
 			engine = await CreateMLCEngine(MODEL, {
-				initProgressCallback: (progress) => self.postMessage({ type: "progress", text: progress.text }),
+				initProgressCallback: (progress) => self.postMessage({
+					type: "progress",
+					phase: "loading",
+					text: progress.text === "Start to fetch params" ?
+						"Starting model download. This can take several minutes on the first run." : progress.text,
+				}),
 			});
 		}
-		self.postMessage({ type: "progress", text: "Drawing… This may take a few minutes." });
+		self.postMessage({ type: "progress", phase: "drawing", text: "Drawing… This may take a few minutes." });
 		const result = await engine.chat.completions.create({
 			messages: [
 				{ role: "system", content: `You draw simple colorful flat illustrations using shapes. Return JSON only: {"shapes":[{"type":"ellipse","color":"#ffcc00","x":300,"y":200,"width":400,"height":400}]}. Shapes are painted in order. The canvas is 1000 by 1000. Coordinates and sizes are numbers between 0 and 1000. Types: rectangle, ellipse, triangle (points up), line (from x,y to x+width,y+height). All colors must be six digit hex like #ff0000. Use 5 to 18 shapes. Make a recognizable, attractive illustration of the user's request. Add a background rectangle only if requested.` },

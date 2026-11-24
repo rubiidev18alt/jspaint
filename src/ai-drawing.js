@@ -28,8 +28,20 @@ export function show_ai_drawing() {
 	let worker;
 	let busy = false;
 	let shapes = null;
+	let progress_timer;
+	let last_progress_time;
+	let progress_text;
+	let progress_phase;
+
+	const show_progress = (text, phase) => {
+		progress_text = text;
+		progress_phase = phase;
+		last_progress_time = Date.now();
+		$status.text(text);
+	};
 
 	const stop = () => {
+		clearInterval(progress_timer);
 		if (worker) {
 			worker.onmessage = null;
 			worker.onerror = null;
@@ -40,6 +52,7 @@ export function show_ai_drawing() {
 	};
 	const set_busy = (value) => {
 		busy = value;
+		if (!value) clearInterval(progress_timer);
 		$generate.prop("disabled", value);
 		$apply.prop("disabled", value || !shapes);
 		$cancel.text(value ? "Stop" : "Close");
@@ -69,7 +82,7 @@ export function show_ai_drawing() {
 				worker = new Worker(new URL("./ai-drawing-worker.js", import.meta.url), { type: "module" });
 				worker.onmessage = ({ data }) => {
 					if (data.type === "progress") {
-						$status.text(data.text);
+						show_progress(data.text, data.phase);
 					} else if (data.type === "error") {
 						fail(`${data.text} Check your connection, browser WebGPU support and available GPU memory, then try again.`);
 					} else if (data.type === "result") {
@@ -91,7 +104,15 @@ export function show_ai_drawing() {
 				worker.onerror = () => fail("The AI worker could not start. Check your browser and try again.");
 			}
 			set_busy(true);
-			$status.text("Loading AI model… The first download may take a while.");
+			show_progress("Loading AI model… The first download may take a while.", "loading");
+			progress_timer = setInterval(() => {
+				const seconds = Math.floor((Date.now() - last_progress_time) / 1000);
+				if (progress_phase !== "drawing" && seconds >= 180) {
+					fail("Model loading has not made progress for 3 minutes. Check your connection, available storage and GPU memory, then try again. Completed download chunks are kept when possible.");
+				} else if (seconds >= 5) {
+					$status.text(`${progress_text} (${seconds}s since last update)`);
+				}
+			}, 1000);
 			worker.postMessage({ prompt });
 		} catch (error) {
 			fail(error.message);
