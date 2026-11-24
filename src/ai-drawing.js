@@ -12,19 +12,13 @@ export function show_ai_drawing() {
 	}
 	const $w = drawing_window = $DialogWindow("AI Drawing").addClass("ai-drawing-window horizontal-buttons squish");
 	$w.$main.html(`
-		<div style="padding: 10px; width: 400px; max-width: calc(100vw - 50px); box-sizing: border-box;">
+		<div class="ai-drawing-content">
 			<p style="margin-top: 0">Describe a picture and the AI will draw it using simple colored shapes.</p>
 			<p>Runs locally with Qwen 2.5 and WebLLM. No API key needed. The first use downloads a large model (about 1 GB); a WebGPU browser and a capable GPU are required.</p>
 			<fieldset class="ai-model-options">
 				<legend>Model</legend>
-				<div class="ai-model-option">
-					<input type="radio" name="ai-drawing-model" id="ai-model-standard" value="standard" checked>
-					<label for="ai-model-standard">Standard (better drawings, more GPU memory)</label>
-				</div>
-				<div class="ai-model-option">
-					<input type="radio" name="ai-drawing-model" id="ai-model-lite" value="lite">
-					<label for="ai-model-lite">Lite (simpler drawings, less GPU memory)</label>
-				</div>
+				<button type="button" class="ai-model-choice" data-model="standard" aria-pressed="true"><b>Standard</b><span>Better drawings; needs more GPU memory</span></button>
+				<button type="button" class="ai-model-choice" data-model="lite" aria-pressed="false"><b>Lite</b><span>Simpler drawings; needs less GPU memory</span></button>
 			</fieldset>
 			<p>On a GPU pipeline error, Standard automatically tries Lite, which requires a separate download of several hundred MB. Both need WebGPU.</p>
 			<label for="ai-drawing-prompt">What should I draw?</label>
@@ -37,9 +31,16 @@ export function show_ai_drawing() {
 	// OS-GUI disables touch actions for draggable windows by default; this
 	// dialog has scrollable content, while its titlebar still handles dragging.
 	$w.css("touch-action", "auto");
-	$w.$main.css({ maxHeight: "calc(100vh - 130px)", overflowY: "auto", touchAction: "pan-y", overscrollBehavior: "contain" });
+	$w.$main.addClass("ai-drawing-scroll");
 	const $prompt = $w.$main.find("#ai-drawing-prompt");
-	const $models = $w.$main.find('input[name="ai-drawing-model"]');
+	const $models = $w.$main.find(".ai-model-choice");
+	let selected_model = "standard";
+	const set_model = (model) => {
+		selected_model = model;
+		$models.each((_index, element) => {
+			$(element).attr("aria-pressed", String(element.dataset.model === model));
+		});
+	};
 	const $status = $w.$main.find(".ai-drawing-status");
 	const $preview = $w.$main.find(".ai-drawing-preview");
 	let worker;
@@ -98,7 +99,7 @@ export function show_ai_drawing() {
 							// fresh worker for the smaller model instead of reusing that device.
 							const fallback_prompt = active_prompt;
 							stop();
-							$models.filter('[value="lite"]').prop("checked", true);
+							set_model("lite");
 							start_generation(fallback_prompt, "lite", true);
 						} else if (/createcomputepipeline/i.test(data.text)) {
 							fail("Your browser or GPU could not compile the AI model, even in Lite mode. Update your browser and GPU drivers, close other GPU-heavy apps, or try a different device. Technical detail: " + data.text);
@@ -152,7 +153,7 @@ export function show_ai_drawing() {
 			set_busy(false);
 			return;
 		}
-		start_generation(prompt, String($models.filter(":checked").val()));
+		start_generation(prompt, selected_model);
 	});
 	const $apply = $w.$Button("Apply to canvas", () => {
 		if (!shapes || busy) return;
@@ -174,7 +175,10 @@ export function show_ai_drawing() {
 		}
 	});
 	$w.on("close", stop);
-	$models.on("change", () => {
+	$models.on("click", (event) => {
+		const model = event.currentTarget.dataset.model;
+		if (model === selected_model || busy) return;
+		set_model(model);
 		stop();
 		shapes = null;
 		$preview.hide();

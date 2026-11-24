@@ -62,7 +62,7 @@ context("AI Drawing", () => {
 			expect(win.aiWorker.model).to.equal("lite");
 			expect(win.aiWorker.prompt).to.equal("a little house");
 		});
-		cy.get("#ai-model-lite").should("be.checked");
+		cy.get('[data-model="lite"]').should("have.attr", "aria-pressed", "true");
 		cy.get(".ai-drawing-status").should("contain", "Trying Lite");
 		cy.window().then((win) => win.aiWorker.onmessage({ data: { type: "error", text: "CreateComputePipelines failed" } }));
 		cy.get(".ai-drawing-status").should("contain", "even in Lite mode");
@@ -71,15 +71,15 @@ context("AI Drawing", () => {
 	});
 
 	it("lets you choose Lite without downloading the standard model", () => {
-		cy.get('label[for="ai-model-lite"]').click();
-		cy.get("#ai-model-lite").should("be.checked");
+		cy.get('.ai-model-choice[data-model="lite"]').click();
+		cy.get('[data-model="lite"]').should("have.attr", "aria-pressed", "true");
 		cy.get("#ai-drawing-prompt").type("a tree");
 		cy.contains(".ai-drawing-window button", "Generate").click();
 		cy.window().its("aiWorker.model").should("equal", "lite");
 		cy.window().then((win) => win.aiWorker.onmessage({ data: { type: "result", text: drawing } }));
 		cy.get(".ai-drawing-preview").should("be.visible");
-		cy.get('label[for="ai-model-standard"]').click();
-		cy.get("#ai-model-standard").should("be.checked");
+		cy.get('.ai-model-choice[data-model="standard"]').click();
+		cy.get('[data-model="standard"]').should("have.attr", "aria-pressed", "true");
 		cy.window().its("aiWorker.terminated").should("equal", true);
 		cy.contains(".ai-drawing-window button", "Apply to canvas").should("be.disabled");
 	});
@@ -123,12 +123,20 @@ context("AI Drawing on a small screen", () => {
 		cy.contains(".menu-button", /^Extras$/).trigger("pointerdown", { which: 1 }).trigger("pointerup", { force: true });
 		cy.contains(".menu-item-label", /^AI Drawing\.\.\.$/).trigger("pointerdown", { which: 1 }).trigger("pointerup", { force: true });
 		cy.get(".ai-drawing-window").should("have.css", "touch-action", "auto");
-		cy.get(".ai-drawing-window .window-content form > div:first-child").should("have.css", "overflow-y", "auto");
-		cy.get('label[for="ai-model-lite"]').should("be.visible").then(($label) => {
-			expect($label[0].getBoundingClientRect().height).to.be.at.least(44);
+		cy.get(".ai-drawing-window").then(($window) => {
+			const rect = $window[0].getBoundingClientRect();
+			expect(rect.left).to.be.at.least(0);
+			expect(rect.right).to.be.at.most(375);
+			expect(rect.bottom).to.be.at.most(667);
+		});
+		cy.get(".ai-drawing-window .window-content form > div:first-child").should("have.css", "overflow-y", "auto").then(($content) => {
+			expect($content[0].scrollWidth).to.equal($content[0].clientWidth);
+		});
+		cy.get('.ai-model-choice[data-model="lite"]').should("be.visible").then(($button) => {
+			expect($button[0].getBoundingClientRect().height).to.be.at.least(44);
 		}).click();
-		cy.get("#ai-model-lite").should("be.checked");
-		cy.get('label[for="ai-model-standard"]').click();
-		cy.get("#ai-model-standard").should("be.checked");
+		cy.get('[data-model="lite"]').should("have.attr", "aria-pressed", "true");
+		cy.get('.ai-model-choice[data-model="standard"]').click();
+		cy.get('[data-model="standard"]').should("have.attr", "aria-pressed", "true");
 	});
 });

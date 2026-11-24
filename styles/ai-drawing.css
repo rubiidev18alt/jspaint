@@ -1,23 +1,80 @@
-/* Large radio labels avoid relying on the native dropdown picker on touchscreens. */
+.ai-drawing-window {
+	white-space: normal !important;
+}
+.ai-drawing-window .ai-drawing-scroll {
+	max-height: calc(100vh - 130px);
+	overflow-y: auto;
+	overflow-x: hidden;
+	touch-action: pan-y;
+	overscroll-behavior: contain;
+}
+.ai-drawing-content {
+	box-sizing: border-box;
+	width: 400px;
+	max-width: calc(100vw - 50px);
+	padding: 10px;
+	overflow-wrap: anywhere;
+}
 .ai-drawing-window .ai-model-options {
 	min-width: 0;
-	padding: 4px 8px;
+	padding: 4px 8px 8px;
 }
-.ai-drawing-window .ai-model-option {
+.ai-drawing-window .ai-model-choice {
 	display: flex;
-	align-items: center;
-}
-.ai-drawing-window .window-content .ai-model-option label {
-	align-items: center;
-	box-sizing: border-box;
-	min-height: 44px;
-	padding: 8px 4px;
-	line-height: normal;
+	flex-direction: column;
+	align-items: flex-start;
+	justify-content: center;
+	width: 100%;
+	min-height: 48px;
+	margin: 4px 0;
+	padding: 6px 12px;
+	text-align: left;
+	white-space: normal;
+	line-height: 1.4;
 	cursor: pointer;
 }
-/* Center 98.css's custom radio glyphs in the larger hit target. */
-.ai-drawing-window .ai-model-option input[type="radio"] + label::before,
-.ai-drawing-window .ai-model-option input[type="radio"]:checked + label::after {
-	top: 50%;
-	transform: translateY(-50%);
+.ai-drawing-window .ai-model-choice[aria-pressed="true"] {
+	outline: 2px solid var(--Hilight, #000080);
+	outline-offset: -3px;
+	box-shadow: inset 2px 2px var(--ButtonShadow, #808080);
+}
+.ai-drawing-window .ai-model-choice[aria-pressed="true"] b::before {
+	content: "✓ ";
+}
+.ai-drawing-window .button-group {
+	flex-wrap: wrap;
+}
+
+/* On touch devices the movable classic window can otherwise end up partly
+   offscreen, especially when the keyboard changes the viewport. */
+@media (pointer: coarse), (max-width: 600px), (max-height: 500px) {
+	.ai-drawing-window {
+		position: fixed !important;
+		inset: 8px !important;
+		width: calc(100vw - 16px) !important;
+		height: calc(100vh - 16px) !important;
+		height: calc(100dvh - 16px) !important;
+		max-width: none !important;
+		max-height: none !important;
+		box-sizing: border-box;
+	}
+	.ai-drawing-window .window-content {
+		min-height: 0;
+	}
+	.ai-drawing-window .window-content > form {
+		height: 100%;
+		min-height: 0;
+	}
+	.ai-drawing-window .ai-drawing-scroll {
+		flex: 1 1 auto;
+		min-height: 0;
+		max-height: none;
+	}
+	.ai-drawing-window .ai-drawing-content {
+		width: 100%;
+		max-width: none;
+	}
+	.ai-drawing-window .button-group > button {
+		min-height: 44px;
+	}
 }
