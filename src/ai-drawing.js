@@ -14,13 +14,14 @@ export function show_ai_drawing() {
 	$w.$main.html(`
 		<div class="ai-drawing-content">
 			<p style="margin-top: 0">Describe a picture and the AI will draw it using simple colored shapes.</p>
-			<p>Runs locally with Qwen 2.5 and WebLLM. No API key needed. The first use downloads a large model (about 1 GB); a WebGPU browser and a capable GPU are required.</p>
+			<p>Runs locally with Qwen 2.5. No API key needed. Each mode downloads its own large model on first use.</p>
 			<fieldset class="ai-model-options">
 				<legend>Model</legend>
 				<button type="button" class="ai-model-choice" data-model="standard" aria-pressed="true"><b>Standard</b><span>Better drawings; needs more GPU memory</span></button>
 				<button type="button" class="ai-model-choice" data-model="lite" aria-pressed="false"><b>Lite</b><span>Simpler drawings; needs less GPU memory</span></button>
+				<button type="button" class="ai-model-choice" data-model="cpu" aria-pressed="false"><b>CPU (no WebGPU)</b><span>Separate ~512 MB download; much slower and needs free memory and storage</span></button>
 			</fieldset>
-			<p>On a GPU pipeline error, Standard automatically tries Lite, which requires a separate download of several hundred MB. Both need WebGPU.</p>
+			<p>On a GPU pipeline error, Standard automatically tries Lite, which requires a separate download of several hundred MB. Both need WebGPU. CPU mode avoids WebGPU but may take many minutes, produce simpler or invalid drawings, or fail on devices with insufficient memory.</p>
 			<label for="ai-drawing-prompt">What should I draw?</label>
 			<textarea id="ai-drawing-prompt" class="inset-deep" rows="3" maxlength="500" placeholder="A yellow sun over a little house" style="display: block; width: 100%; box-sizing: border-box; margin: 5px 0;"></textarea>
 			<p style="margin: 5px 0">The AI creates a new illustration; it cannot see or edit your existing picture. Applying it draws over your canvas and can be undone.</p>
@@ -89,7 +90,7 @@ export function show_ai_drawing() {
 		active_model = model;
 		try {
 			if (!worker) {
-				worker = new Worker(new URL("./ai-drawing-worker.js", import.meta.url), { type: "module" });
+				worker = new Worker(new URL(model === "cpu" ? "./ai-drawing-cpu-worker.js" : "./ai-drawing-worker.js", import.meta.url), { type: "module" });
 				worker.onmessage = ({ data }) => {
 					if (data.type === "progress") {
 						show_progress(data.text, data.phase);
@@ -101,10 +102,10 @@ export function show_ai_drawing() {
 							stop();
 							set_model("lite");
 							start_generation(fallback_prompt, "lite", true);
-						} else if (/createcomputepipeline/i.test(data.text)) {
-							fail("Your browser or GPU could not compile the AI model, even in Lite mode. Update your browser and GPU drivers, close other GPU-heavy apps, or try a different device. Technical detail: " + data.text);
+						} else if (active_model !== "cpu" && /createcomputepipeline/i.test(data.text)) {
+							fail("Your browser or GPU could not compile the AI model, even in Lite mode. Try CPU mode, update your browser and GPU drivers, or try a different device. Technical detail: " + data.text);
 						} else {
-							fail(`${data.text} Check your connection, browser WebGPU support and available GPU memory, then try again.`);
+							fail(active_model === "cpu" ? `${data.text} Check your connection, available memory and storage, then try again. CPU mode may not work on every device.` : `${data.text} Check your connection, browser WebGPU support and available GPU memory, then try again.`);
 						}
 					} else if (data.type === "result") {
 						try {
@@ -128,8 +129,8 @@ export function show_ai_drawing() {
 			show_progress(is_fallback ? "Standard model failed on this GPU. Trying Lite; its separate download may take a while." : "Loading AI model… The first download may take a while.", "loading");
 			progress_timer = setInterval(() => {
 				const seconds = Math.floor((Date.now() - last_progress_time) / 1000);
-				if (progress_phase !== "drawing" && seconds >= 180) {
-					fail("Model loading has not made progress for 3 minutes. Check your connection, available storage and GPU memory, then try again. Completed download chunks are kept when possible.");
+				if (progress_phase !== "drawing" && seconds >= (model === "cpu" ? 600 : 180)) {
+					fail(model === "cpu" ? "CPU model loading has not made progress for 10 minutes. Check your connection, available storage and memory, then try again." : "Model loading has not made progress for 3 minutes. Check your connection, available storage and GPU memory, then try again. Completed download chunks are kept when possible.");
 				} else if (seconds >= 5) {
 					$status.text(`${progress_text} (${seconds}s since last update)`);
 				}
@@ -148,8 +149,8 @@ export function show_ai_drawing() {
 		}
 		shapes = null;
 		$preview.hide();
-		if (!navigator.gpu) {
-			$status.text("WebGPU is not available. Try a current WebGPU-enabled Chrome or Edge browser on a compatible device.");
+		if (selected_model !== "cpu" && !navigator.gpu) {
+			$status.text("WebGPU is not available. Select CPU mode, or try a current WebGPU-enabled Chrome or Edge browser on a compatible device.");
 			set_busy(false);
 			return;
 		}

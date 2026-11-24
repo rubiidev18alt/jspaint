@@ -14,7 +14,8 @@ context("AI Drawing", () => {
 				const NativeWorker = win.Worker;
 				win.Worker = class {
 					constructor(url, options) {
-						if (!String(url).includes("ai-drawing-worker")) return new NativeWorker(url, options);
+						if (!String(url).includes("ai-drawing-worker") && !String(url).includes("ai-drawing-cpu-worker")) return new NativeWorker(url, options);
+						this.url = String(url);
 						win.aiWorker = this;
 					}
 					postMessage(message) { this.prompt = message.prompt; this.model = message.model; }
@@ -82,6 +83,24 @@ context("AI Drawing", () => {
 		cy.get('[data-model="standard"]').should("have.attr", "aria-pressed", "true");
 		cy.window().its("aiWorker.terminated").should("equal", true);
 		cy.contains(".ai-drawing-window button", "Apply to canvas").should("be.disabled");
+	});
+
+	it("runs CPU mode without WebGPU and can stop or preview a result", () => {
+		cy.window().then((win) => Object.defineProperty(win.navigator, "gpu", { configurable: true, value: undefined }));
+		cy.get('.ai-model-choice[data-model="cpu"]').click();
+		cy.get("#ai-drawing-prompt").type("a tree");
+		cy.contains(".ai-drawing-window button", "Generate").click();
+		cy.window().then((win) => {
+			expect(win.aiWorker.model).to.equal("cpu");
+			expect(win.aiWorker.url).to.contain("ai-drawing-cpu-worker.js");
+			win.aiWorker.onmessage({ data: { type: "progress", phase: "drawing", text: "Drawing on CPU… 5 tokens generated." } });
+		});
+		cy.get(".ai-drawing-status").should("contain", "5 tokens");
+		cy.contains(".ai-drawing-window button", "Stop").click();
+		cy.window().its("aiWorker.terminated").should("equal", true);
+		cy.contains(".ai-drawing-window button", "Generate").click();
+		cy.window().then((win) => win.aiWorker.onmessage({ data: { type: "result", text: drawing } }));
+		cy.get(".ai-drawing-preview").should("be.visible");
 	});
 
 	it("shows download progress and recovers when loading stops responding", () => {

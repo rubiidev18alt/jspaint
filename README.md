@@ -858,10 +858,18 @@ minutes. Use Stop to cancel. If the standard model encounters a GPU pipeline
 error, the app automatically tries the smaller Qwen 2.5 0.5B Lite model in a
 fresh worker. Lite needs a separate download of several hundred MB and about
 1 GB of GPU memory; its drawings may be simpler. You can also select Lite
-before generating. Both models require WebGPU and may fail on some GPU drivers;
-try updating the browser and drivers or using a different device if Lite fails
-too. The WebLLM library is distributed under its
-[Apache 2.0 license](lib/web-llm/LICENSE).
+before generating. Both GPU modes require WebGPU and may fail on some GPU drivers.
+
+**CPU (no WebGPU)** uses Qwen 2.5 0.5B through Transformers.js and ONNX
+Runtime Web/WASM instead; it does not use WebGPU. It needs a separate download
+of about 512 MB plus files, free storage, and substantial working memory.
+It is much slower (potentially many minutes), and smaller models can return
+invalid or simpler drawings. Use Stop to cancel. Browser, memory and device
+compatibility still vary; it is not guaranteed to work on every tablet. The
+browser may evict cached files or be unable to cache them, requiring another
+download. WebLLM and Transformers.js are distributed under their Apache 2.0
+licenses, and ONNX Runtime Web under the MIT license; see `lib/web-llm` and
+`lib/transformers` for license files.
 
 #### Testing on GitHub Pages
 
